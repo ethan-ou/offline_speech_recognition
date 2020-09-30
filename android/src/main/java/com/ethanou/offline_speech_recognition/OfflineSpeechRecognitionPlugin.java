@@ -1,53 +1,72 @@
 package com.ethanou.offline_speech_recognition;
 
+import android.app.Activity;
+import android.content.Context;
+import android.os.Build;
+
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 
 import io.flutter.embedding.engine.plugins.FlutterPlugin;
-import io.flutter.plugin.common.MethodCall;
-import io.flutter.plugin.common.MethodChannel;
-import io.flutter.plugin.common.MethodChannel.MethodCallHandler;
-import io.flutter.plugin.common.MethodChannel.Result;
+import io.flutter.embedding.engine.plugins.activity.ActivityAware;
+import io.flutter.embedding.engine.plugins.activity.ActivityPluginBinding;
+import io.flutter.plugin.common.BinaryMessenger;
 import io.flutter.plugin.common.PluginRegistry.Registrar;
 
 /** OfflineSpeechRecognitionPlugin */
-public class OfflineSpeechRecognitionPlugin implements FlutterPlugin, MethodCallHandler {
-  /// The MethodChannel that will the communication between Flutter and native Android
-  ///
-  /// This local reference serves to register the plugin with the Flutter Engine and unregister it
-  /// when the Flutter Engine is detached from the Activity
-  private MethodChannel channel;
+public class OfflineSpeechRecognitionPlugin implements FlutterPlugin, ActivityAware {
+  private @Nullable FlutterPluginBinding flutterBinding;
+  private @Nullable MethodCallHandlerImpl methodCallHandler;
 
-  @Override
-  public void onAttachedToEngine(@NonNull FlutterPluginBinding flutterPluginBinding) {
-    channel = new MethodChannel(flutterPluginBinding.getFlutterEngine().getDartExecutor(), "offline_speech_recognition");
-    channel.setMethodCallHandler(this);
-  }
-
-  // This static function is optional and equivalent to onAttachedToEngine. It supports the old
-  // pre-Flutter-1.12 Android projects. You are encouraged to continue supporting
-  // plugin registration via this function while apps migrate to use the new Android APIs
-  // post-flutter-1.12 via https://flutter.dev/go/android-project-migration.
-  //
-  // It is encouraged to share logic between onAttachedToEngine and registerWith to keep
-  // them functionally equivalent. Only one of onAttachedToEngine or registerWith will be called
-  // depending on the user's project. onAttachedToEngine or registerWith must both be defined
-  // in the same class.
+  @SuppressWarnings("deprecation")
   public static void registerWith(Registrar registrar) {
-    final MethodChannel channel = new MethodChannel(registrar.messenger(), "offline_speech_recognition");
-    channel.setMethodCallHandler(new OfflineSpeechRecognitionPlugin());
+    OfflineSpeechRecognitionPlugin plugin = new OfflineSpeechRecognitionPlugin();
+    plugin.startListening(registrar.activity(), registrar.messenger());
   }
 
   @Override
-  public void onMethodCall(@NonNull MethodCall call, @NonNull Result result) {
-    if (call.method.equals("getPlatformVersion")) {
-      result.success("Android " + android.os.Build.VERSION.RELEASE);
-    } else {
-      result.notImplemented();
-    }
+  public void onAttachedToEngine(@NonNull FlutterPluginBinding binding) {
+    this.flutterBinding = binding;
   }
 
   @Override
   public void onDetachedFromEngine(@NonNull FlutterPluginBinding binding) {
-    channel.setMethodCallHandler(null);
+    this.flutterBinding = null;
   }
+
+  public void onAttachedToActivity(@NonNull ActivityPluginBinding binding) {
+    startListening(binding.getActivity(), flutterBinding.getBinaryMessenger());
+  }
+
+  @Override
+  public void onDetachedFromActivity() {
+    if (methodCallHandler == null) {
+      // Could be on too low of an SDK to have started listening originally.
+      return;
+    }
+
+    methodCallHandler.stopListening();
+    methodCallHandler = null;
+  }
+
+  @Override
+  public void onReattachedToActivityForConfigChanges(@NonNull ActivityPluginBinding binding) {
+    onAttachedToActivity(binding);
+  }
+
+  @Override
+  public void onDetachedFromActivityForConfigChanges() {
+    onDetachedFromActivity();
+  }
+
+  private void startListening(Activity activity, BinaryMessenger messenger) {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) {
+      // If the sdk is less than 21 (min sdk for Camera2) we don't register the plugin.
+      return;
+    }
+
+    methodCallHandler = new MethodCallHandlerImpl(activity, messenger);
+  }
+
+
 }
