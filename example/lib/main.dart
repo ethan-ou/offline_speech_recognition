@@ -24,12 +24,11 @@ class _MyAppState extends State<MyApp> {
 
   // Platform messages are asynchronous, so we initialize in an async method.
   Future<void> initPlatformState() async {
-    String platformVersion;
     // Platform messages may fail, so we use a try/catch PlatformException.
     try {
-      platformVersion = await OfflineSpeechRecognition.platformVersion;
-    } on PlatformException {
-      platformVersion = 'Failed to get platform version.';
+      await OfflineSpeechRecognition.init();
+    } on Exception {
+      print("Exception!");
     }
 
     // If the widget was removed from the tree while the asynchronous platform
@@ -38,8 +37,16 @@ class _MyAppState extends State<MyApp> {
     if (!mounted) return;
 
     setState(() {
-      _platformVersion = platformVersion;
+      _platformVersion = "Works!";
     });
+  }
+
+  Future<void> initSpeechRecognition() async {
+    try {
+      await OfflineSpeechRecognition.load();
+    } on Exception {
+      print("Exception!");
+    }
   }
 
   @override
@@ -51,6 +58,14 @@ class _MyAppState extends State<MyApp> {
         ),
         body: Center(
           child: Text('Running on: $_platformVersion\n'),
+        ),
+        floatingActionButton: FloatingActionButton(
+          onPressed: () async {
+            // Add your onPressed code here!
+            await initSpeechRecognition();
+          },
+          child: Icon(Icons.navigation),
+          backgroundColor: Colors.green,
         ),
       ),
     );
