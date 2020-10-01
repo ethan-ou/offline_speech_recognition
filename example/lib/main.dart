@@ -44,6 +44,7 @@ class _MyAppState extends State<MyApp> {
   Future<void> initSpeechRecognition() async {
     try {
       await OfflineSpeechRecognition.load();
+      await OfflineSpeechRecognition.start();
     } on Exception {
       print("Exception!");
     }
@@ -56,8 +57,23 @@ class _MyAppState extends State<MyApp> {
         appBar: AppBar(
           title: const Text('Plugin example app'),
         ),
-        body: Center(
-          child: Text('Running on: $_platformVersion\n'),
+        body: Column(
+          children: [
+            Center(
+              child: Text('Running on: $_platformVersion\n'),
+            ),
+            StreamBuilder(
+                stream: OfflineSpeechRecognition.onRecognitionPartial(),
+                builder:
+                    (BuildContext context, AsyncSnapshot<String> snapshot) {
+                  if (snapshot.hasData) {
+                    print(snapshot.data);
+                    return Text(snapshot.data);
+                  } else {
+                    return Text("No Data Yet");
+                  }
+                })
+          ],
         ),
         floatingActionButton: FloatingActionButton(
           onPressed: () async {
