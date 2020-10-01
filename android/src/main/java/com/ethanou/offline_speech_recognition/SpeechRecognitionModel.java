@@ -29,8 +29,10 @@ public class SpeechRecognitionModel implements RecognitionListener {
     private EventChannel.EventSink resultEvent;
     private EventChannel.EventSink partialEvent;
 
-    public SpeechRecognitionModel(final Activity activity) {
+    public SpeechRecognitionModel(final Activity activity, EventChannel.EventSink resultEvent, EventChannel.EventSink partialEvent) {
         this.activity = activity;
+        this.resultEvent = resultEvent;
+        this.partialEvent = partialEvent;
     }
 
     private class ErrorHandler implements TaskRunner.ErrorHandler {
@@ -47,29 +49,31 @@ public class SpeechRecognitionModel implements RecognitionListener {
             taskRunner = new TaskRunner();
         }
 
+        if (path == null) {
+            return;
+        }
+
         // Recognizer initialization is a time-consuming and it involves IO,
         // so we execute it in a Runnable
         try {
-            taskRunner.executeAsync(new SetupTask(path), new TaskRunner.Callback<Model>() {
+            taskRunner.executeAsync(new SetupModel(path), new TaskRunner.Callback<Model>() {
                 @Override
                 public void onComplete(Model result) {
                     model = result;
                 }
             }, new ErrorHandler());
 
-            KaldiRecognizer rec = new KaldiRecognizer(model, 16000.0f);
-            speechService = new SpeechService(rec, 16000.0f);
-            speechService.addListener(this);
+
         } catch(Exception e) {
             onError(e);
         }
 
     }
 
-    private static class SetupTask implements Callable<Model> {
+    private static class SetupModel implements Callable<Model> {
         private final String path;
 
-        public SetupTask(String path) {
+        public SetupModel(String path) {
             this.path = path;
         }
 
@@ -79,17 +83,30 @@ public class SpeechRecognitionModel implements RecognitionListener {
             return new Model(path);
         }
     }
+    
+    public void start() {
+        if (speechService != null) {
+            speechService.cancel();
+            speechService = null;
+            return;
+        }
 
-    public void start(EventChannel resultEventChannel, EventChannel partialEventChannel) {
-        initEventChannels(resultEventChannel, partialEventChannel);
+        try {
+            if (model == null) {
+                throw new Exception("Model Not Found");
+            }
 
-        speechService.startListening();
+            KaldiRecognizer rec = new KaldiRecognizer(model, 16000.0f);
+            speechService = new SpeechService(rec, 16000.0f);
+            speechService.addListener(this);
+            speechService.startListening();
+        } catch (Exception e) {
+            onError(e);
+        }
 
     }
 
     public void stop() {
-        destroyEventChannels();
-
         if (speechService != null) {
             speechService.stop();
             speechService.shutdown();
@@ -106,6 +123,8 @@ public class SpeechRecognitionModel implements RecognitionListener {
 
     @Override
     public void onResult(String hypothesis) {
+        Log.d("Result", hypothesis);
+
         if (resultEvent != null) {
             resultEvent.success(hypothesis);
         }
@@ -113,6 +132,8 @@ public class SpeechRecognitionModel implements RecognitionListener {
 
     @Override
     public void onPartialResult(String hypothesis) {
+        Log.d("Partial Result", hypothesis);
+
         if (partialEvent != null) {
             partialEvent.success(hypothesis);
         }
@@ -129,36 +150,5 @@ public class SpeechRecognitionModel implements RecognitionListener {
         speechService = null;
     }
 
-    private void initEventChannels(EventChannel resultEventChannel, EventChannel partialEventChannel) {
-        resultEventChannel.setStreamHandler(new EventChannel.StreamHandler() {
-            @Override
-            public void onListen(Object arguments, EventChannel.EventSink events) {
-                resultEvent = events;
-            }
 
-            @Override
-            public void onCancel(Object arguments) {
-                resultEvent = null;
-            }
-        });
-
-        partialEventChannel.setStreamHandler(new EventChannel.StreamHandler() {
-            @Override
-            public void onListen(Object arguments, EventChannel.EventSink events) {
-                partialEvent = events;
-            }
-
-            @Override
-            public void onCancel(Object arguments) {
-                partialEvent = null;
-            }
-        });
-    }
-
-    private void destroyEventChannels() {
-        resultEvent.endOfStream();
-        partialEvent.endOfStream();
-        resultEvent = null;
-        partialEvent = null;
-    }
 }

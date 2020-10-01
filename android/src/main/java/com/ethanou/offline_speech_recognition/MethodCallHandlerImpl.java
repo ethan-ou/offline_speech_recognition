@@ -14,13 +14,15 @@ import io.flutter.plugin.common.MethodChannel;
 public class MethodCallHandlerImpl implements MethodChannel.MethodCallHandler {
     private static final String PLUGIN_CHANNEL_NAME = "offline_speech_recognition";
     private static final String RESULT_MESSAGE_CHANNEL_NAME = "offline_speech_recognition/result_message";
-    private static final String PARTIAL_MESSAGE_CHANNEL_NAME = "offline_speech_recognition/result_partial";
+    private static final String PARTIAL_MESSAGE_CHANNEL_NAME = "offline_speech_recognition/partial_message";
 
     private final Activity activity;
     private final BinaryMessenger messenger;
     private final MethodChannel methodChannel;
     private final EventChannel resultEventChannel;
     private final EventChannel partialEventChannel;
+    private EventChannel.EventSink resultEvent;
+    private EventChannel.EventSink partialEvent;
     private @Nullable SpeechRecognitionModel speech;
 
     MethodCallHandlerImpl(Activity activity, BinaryMessenger messenger) {
@@ -32,6 +34,7 @@ public class MethodCallHandlerImpl implements MethodChannel.MethodCallHandler {
         methodChannel = new MethodChannel(messenger, PLUGIN_CHANNEL_NAME);
 
         methodChannel.setMethodCallHandler(this);
+        initEventChannels();
     }
 
     @Override
@@ -41,7 +44,7 @@ public class MethodCallHandlerImpl implements MethodChannel.MethodCallHandler {
                 if (speech != null) {
                     speech.destroy();
                 }
-                speech = new SpeechRecognitionModel(activity);
+                speech = new SpeechRecognitionModel(activity, resultEvent, partialEvent);
                 result.success(null);
                 break;
 
@@ -52,7 +55,7 @@ public class MethodCallHandlerImpl implements MethodChannel.MethodCallHandler {
                 break;
 
             case "recognition.start":
-                speech.start(resultEventChannel, partialEventChannel);
+                speech.start();
                 result.success(null);
                 break;
 
@@ -74,6 +77,38 @@ public class MethodCallHandlerImpl implements MethodChannel.MethodCallHandler {
 
     void stopListening() {
         methodChannel.setMethodCallHandler(null);
+        destroyEventChannels();
+    }
+
+    private void initEventChannels() {
+        resultEventChannel.setStreamHandler(new EventChannel.StreamHandler() {
+            @Override
+            public void onListen(Object arguments, EventChannel.EventSink events) {
+                resultEvent = events;
+            }
+
+            @Override
+            public void onCancel(Object arguments) {
+                resultEvent = null;
+            }
+        });
+
+        partialEventChannel.setStreamHandler(new EventChannel.StreamHandler() {
+            @Override
+            public void onListen(Object arguments, EventChannel.EventSink events) {
+                partialEvent = events;
+            }
+
+            @Override
+            public void onCancel(Object arguments) {
+                partialEvent = null;
+            }
+        });
+    }
+
+    private void destroyEventChannels() {
+        resultEventChannel.setStreamHandler(null);
+        partialEventChannel.setStreamHandler(null);
     }
 
     // We move catching CameraAccessException out of onMethodCall because it causes a crash
