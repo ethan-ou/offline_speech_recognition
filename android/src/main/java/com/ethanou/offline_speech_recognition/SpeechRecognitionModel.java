@@ -18,12 +18,16 @@ import org.kaldi.Vosk;
 import java.io.IOException;
 import java.util.concurrent.Callable;
 
+import io.flutter.plugin.common.EventChannel;
+
 
 public class SpeechRecognitionModel implements RecognitionListener {
     private Model model;
     private SpeechService speechService;
     private TaskRunner taskRunner;
     private Activity activity;
+    private EventChannel.EventSink resultEvent;
+    private EventChannel.EventSink partialEvent;
 
     public SpeechRecognitionModel(final Activity activity) {
         this.activity = activity;
@@ -37,11 +41,14 @@ public class SpeechRecognitionModel implements RecognitionListener {
     }
 
     public void load(String path) {
+        Permissions.check(activity);
+
+        if (taskRunner == null) {
+            taskRunner = new TaskRunner();
+        }
+
         // Recognizer initialization is a time-consuming and it involves IO,
         // so we execute it in a Runnable
-        Permissions.check(activity);
-        taskRunner = new TaskRunner();
-
         try {
             taskRunner.executeAsync(new SetupTask(path), new TaskRunner.Callback<Model>() {
                 @Override
@@ -49,6 +56,10 @@ public class SpeechRecognitionModel implements RecognitionListener {
                     model = result;
                 }
             }, new ErrorHandler());
+
+            KaldiRecognizer rec = new KaldiRecognizer(model, 16000.0f);
+            speechService = new SpeechService(rec, 16000.0f);
+            speechService.addListener(this);
         } catch(Exception e) {
             onError(e);
         }
@@ -69,23 +80,16 @@ public class SpeechRecognitionModel implements RecognitionListener {
         }
     }
 
-    public void start() {
-        if (speechService != null) {
-            speechService.cancel();
-            speechService = null;
-        } else {
-            try {
-                KaldiRecognizer rec = new KaldiRecognizer(model, 16000.0f);
-                speechService = new SpeechService(rec, 16000.0f);
-                speechService.addListener(this);
-                speechService.startListening();
-            } catch (IOException e) {
-                onError(e);
-            }
-        }
+    public void start(EventChannel resultEventChannel, EventChannel partialEventChannel) {
+        initEventChannels(resultEventChannel, partialEventChannel);
+
+        speechService.startListening();
+
     }
 
     public void stop() {
+        destroyEventChannels();
+
         if (speechService != null) {
             speechService.stop();
             speechService.shutdown();
@@ -102,12 +106,16 @@ public class SpeechRecognitionModel implements RecognitionListener {
 
     @Override
     public void onResult(String hypothesis) {
-
+        if (resultEvent != null) {
+            resultEvent.success(hypothesis);
+        }
     }
 
     @Override
     public void onPartialResult(String hypothesis) {
-
+        if (partialEvent != null) {
+            partialEvent.success(hypothesis);
+        }
     }
 
     @Override
@@ -119,5 +127,38 @@ public class SpeechRecognitionModel implements RecognitionListener {
     public void onTimeout() {
         speechService.cancel();
         speechService = null;
+    }
+
+    private void initEventChannels(EventChannel resultEventChannel, EventChannel partialEventChannel) {
+        resultEventChannel.setStreamHandler(new EventChannel.StreamHandler() {
+            @Override
+            public void onListen(Object arguments, EventChannel.EventSink events) {
+                resultEvent = events;
+            }
+
+            @Override
+            public void onCancel(Object arguments) {
+                resultEvent = null;
+            }
+        });
+
+        partialEventChannel.setStreamHandler(new EventChannel.StreamHandler() {
+            @Override
+            public void onListen(Object arguments, EventChannel.EventSink events) {
+                partialEvent = events;
+            }
+
+            @Override
+            public void onCancel(Object arguments) {
+                partialEvent = null;
+            }
+        });
+    }
+
+    private void destroyEventChannels() {
+        resultEvent.endOfStream();
+        partialEvent.endOfStream();
+        resultEvent = null;
+        partialEvent = null;
     }
 }
