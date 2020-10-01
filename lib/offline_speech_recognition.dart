@@ -1,6 +1,9 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/services.dart';
+import 'package:offline_speech_recognition/model/speech_partial_result.dart';
+import 'package:offline_speech_recognition/model/speech_result.dart';
 import 'package:offline_speech_recognition/model_downloader.dart';
 
 class OfflineSpeechRecognition {
@@ -54,8 +57,8 @@ class OfflineSpeechRecognition {
   }
 
   static Future<void> load() async {
+    await _channel.invokeMethod("recognition.init");
     String path = await downloadAssets() + "/vosk-model-small-en-us-0.3";
-    print(path);
     await _channel
         .invokeMethod("recognition.load", <String, String>{'path': path});
   }
@@ -72,25 +75,25 @@ class OfflineSpeechRecognition {
     await _channel.invokeMethod("recognition.destroy");
   }
 
-  static Stream<String> _onRecognitionResult;
+  static Stream<SpeechResult> _onRecognitionResult;
 
-  static Stream<String> onRecognitionResult() {
+  static Stream<SpeechResult> onRecognitionResult() {
     if (_onRecognitionResult == null) {
-      _onRecognitionResult =
-          _resultMessageChannel.receiveBroadcastStream().map((value) => value);
+      _onRecognitionResult = _resultMessageChannel
+          .receiveBroadcastStream()
+          .map((data) => SpeechResult.fromJson(jsonDecode(data)));
     }
-
     return _onRecognitionResult;
   }
 
-  static Stream<String> _onRecognitionPartial;
+  static Stream<SpeechPartialResult> _onRecognitionPartial;
 
-  static Stream<String> onRecognitionPartial() {
+  static Stream<SpeechPartialResult> onRecognitionPartial() {
     if (_onRecognitionPartial == null) {
-      _onRecognitionPartial =
-          _partialMessageChannel.receiveBroadcastStream().map((value) => value);
+      _onRecognitionPartial = _partialMessageChannel
+          .receiveBroadcastStream()
+          .map((data) => SpeechPartialResult.fromJson(jsonDecode(data)));
     }
-
     return _onRecognitionPartial;
   }
 }

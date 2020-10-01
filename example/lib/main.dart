@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:offline_speech_recognition/model/speech_partial_result.dart';
 import 'dart:async';
 
-import 'package:flutter/services.dart';
 import 'package:offline_speech_recognition/offline_speech_recognition.dart';
+import 'package:offline_speech_recognition/model/speech_result.dart';
 
 void main() {
   runApp(MyApp());
@@ -44,7 +45,6 @@ class _MyAppState extends State<MyApp> {
   Future<void> initSpeechRecognition() async {
     try {
       await OfflineSpeechRecognition.load();
-      await OfflineSpeechRecognition.start();
     } on Exception {
       print("Exception!");
     }
@@ -64,14 +64,24 @@ class _MyAppState extends State<MyApp> {
             ),
             StreamBuilder(
                 stream: OfflineSpeechRecognition.onRecognitionPartial(),
-                builder:
-                    (BuildContext context, AsyncSnapshot<String> snapshot) {
+                builder: (BuildContext context,
+                    AsyncSnapshot<SpeechPartialResult> snapshot) {
                   if (snapshot.hasData) {
-                    print(snapshot.data);
-                    return Text(snapshot.data);
+                    return Text(snapshot.data.partial);
                   } else {
                     return Text("No Data Yet");
                   }
+                }),
+            FlatButton(
+                child: Text("Start"),
+                onPressed: () async {
+                  await OfflineSpeechRecognition.start();
+                }),
+            FlatButton(
+                child: Text("Delete Assets"),
+                onPressed: () async {
+                  await OfflineSpeechRecognition.destroy();
+                  await OfflineSpeechRecognition.clearAssets();
                 })
           ],
         ),
