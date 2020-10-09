@@ -5,7 +5,7 @@ class SpeechResult {
 
   SpeechResult.fromJson(Map<String, dynamic> json) : text = json['text'];
 
-  Map<String, dynamic> toJson() => {
+  Map<String, String> toJson() => {
         'text': text,
       };
 

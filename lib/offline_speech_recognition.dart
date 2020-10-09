@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/services.dart';
-import 'package:offline_speech_recognition/model/speech_partial_result.dart';
+import 'package:offline_speech_recognition/model/speech_partial.dart';
 import 'package:offline_speech_recognition/model/speech_result.dart';
 import 'package:offline_speech_recognition/model_downloader.dart';
 
@@ -15,10 +15,6 @@ class OfflineSpeechRecognition {
 
   static const EventChannel _partialMessageChannel =
       EventChannel('offline_speech_recognition/partial_message');
-
-  static Future<void> init() async {
-    await _channel.invokeMethod("recognition.init");
-  }
 
   static Future<String> downloadAssets() async {
     await ModelDownloader.init();
@@ -86,13 +82,13 @@ class OfflineSpeechRecognition {
     return _onRecognitionResult;
   }
 
-  static Stream<SpeechPartialResult> _onRecognitionPartial;
+  static Stream<SpeechPartial> _onRecognitionPartial;
 
-  static Stream<SpeechPartialResult> onRecognitionPartial() {
+  static Stream<SpeechPartial> onRecognitionPartial() {
     if (_onRecognitionPartial == null) {
       _onRecognitionPartial = _partialMessageChannel
           .receiveBroadcastStream()
-          .map((data) => SpeechPartialResult.fromJson(jsonDecode(data)));
+          .map((data) => SpeechPartial.fromJson(jsonDecode(data)));
     }
     return _onRecognitionPartial;
   }
