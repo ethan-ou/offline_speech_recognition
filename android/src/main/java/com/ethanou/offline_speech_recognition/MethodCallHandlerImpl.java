@@ -6,6 +6,8 @@ import android.util.EventLog;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
+import java.io.IOException;
+
 import io.flutter.plugin.common.BinaryMessenger;
 import io.flutter.plugin.common.EventChannel;
 import io.flutter.plugin.common.MethodCall;
@@ -40,30 +42,45 @@ public class MethodCallHandlerImpl implements MethodChannel.MethodCallHandler {
     @Override
     public void onMethodCall(@NonNull MethodCall call, @NonNull MethodChannel.Result result) {
         switch (call.method) {
-            case "recognition.init":
+            // Load initialises the model and checks for permissions. The model needs to be downloaded at this point
+            // to be initialised.
+            case "recognition.load":
                 if (speech != null) {
                     speech.destroy();
                 }
                 speech = new SpeechRecognitionModel(activity, resultEvent, partialEvent);
-                result.success(null);
-                break;
-
-            case "recognition.load":
                 String path = call.argument("path");
-                speech.load(path);
+
+                // Handling of exceptions should happen here.
+                try {
+                    speech.load(path);
+                } catch (Exception e) {
+                    result.error("Runtime Exception", e.getMessage(), e);
+                    break;
+                }
+
                 result.success(null);
                 break;
 
+            // Start allows the model to be started.
             case "recognition.start":
-                speech.start();
+                try {
+                    speech.start();
+                } catch (IOException e) {
+                    result.error("IO Exception", e.getMessage(), e);
+                    break;
+                }
+
                 result.success(null);
                 break;
-
+            
+            // Stop is for stopping the speech recognition model. Unlike destroy, it allows the model to be started again.
             case "recognition.stop":
                 speech.stop();
                 result.success(null);
                 break;
 
+            // Destroy is for completely removing the speech recognition model.
             case "recognition.destroy":
                 speech.destroy();
                 result.success(null);
@@ -110,19 +127,4 @@ public class MethodCallHandlerImpl implements MethodChannel.MethodCallHandler {
         resultEventChannel.setStreamHandler(null);
         partialEventChannel.setStreamHandler(null);
     }
-
-    // We move catching CameraAccessException out of onMethodCall because it causes a crash
-    // on plugin registration for sdks incompatible with Camera2 (< 21). We want this plugin to
-    // to be able to compile with <21 sdks for apps that want the camera and support earlier version.
-//    @SuppressWarnings("ConstantConditions")
-//    private void handleException(Exception exception, Result result) {
-//        if (exception instanceof CameraAccessException) {
-//            result.error("CameraAccess", exception.getMessage(), null);
-//            return;
-//        }
-//
-//        // CameraAccessException can not be cast to a RuntimeException.
-//        throw (RuntimeException) exception;
-//    }
-
 }

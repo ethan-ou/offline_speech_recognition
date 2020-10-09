@@ -20,7 +20,6 @@ import java.util.concurrent.Callable;
 
 import io.flutter.plugin.common.EventChannel;
 
-
 public class SpeechRecognitionModel implements RecognitionListener {
     private Model model;
     private SpeechService speechService;
@@ -35,13 +34,7 @@ public class SpeechRecognitionModel implements RecognitionListener {
         this.partialEvent = partialEvent;
     }
 
-    private class ErrorHandler implements TaskRunner.ErrorHandler {
-        @Override
-        public void onError(Object error) {
-            onError(error);
-        }
-    }
-
+    // Checks for permissions and loads the new model. It runs the setup in a Runnable.
     public void load(String path) {
         Permissions.check(activity);
 
@@ -61,11 +54,10 @@ public class SpeechRecognitionModel implements RecognitionListener {
                 public void onComplete(Model result) {
                     model = result;
                 }
-            }, new ErrorHandler());
-
+            });
 
         } catch(Exception e) {
-            onError(e);
+           throw new RuntimeException(e);
         }
 
     }
@@ -83,27 +75,24 @@ public class SpeechRecognitionModel implements RecognitionListener {
             return new Model(path);
         }
     }
-    
-    public void start() {
+
+    // More accurately, this is a start/stop toggle.
+    public void start() throws IOException {
+        // If the speech is already running, cancel it.
         if (speechService != null) {
             speechService.cancel();
             speechService = null;
             return;
         }
 
-        try {
-            if (model == null) {
-                throw new Exception("Model Not Found");
-            }
-
-            KaldiRecognizer rec = new KaldiRecognizer(model, 16000.0f);
-            speechService = new SpeechService(rec, 16000.0f);
-            speechService.addListener(this);
-            speechService.startListening();
-        } catch (Exception e) {
-            onError(e);
+        if (model == null) {
+            throw new IOException("Model not loaded. Model may not be downloaded yet, or has the wrong path in the filesystem.");
         }
 
+        KaldiRecognizer rec = new KaldiRecognizer(model, 16000.0f);
+        speechService = new SpeechService(rec, 16000.0f);
+        speechService.addListener(this);
+        speechService.startListening();
     }
 
     public void stop() {
@@ -123,8 +112,6 @@ public class SpeechRecognitionModel implements RecognitionListener {
 
     @Override
     public void onResult(String hypothesis) {
-        Log.d("Result", hypothesis);
-
         if (resultEvent != null) {
             resultEvent.success(hypothesis);
         }
@@ -132,16 +119,21 @@ public class SpeechRecognitionModel implements RecognitionListener {
 
     @Override
     public void onPartialResult(String hypothesis) {
-        Log.d("Partial Result", hypothesis);
-
         if (partialEvent != null) {
             partialEvent.success(hypothesis);
         }
     }
 
+    // User might be listening to both the results and the partial results, so return an error for both.
     @Override
     public void onError(Exception e) {
+        if (resultEvent != null) {
+            resultEvent.error("Runtime Exception", e.getMessage(), e);
+        }
 
+        if (partialEvent != null) {
+            partialEvent.error("Runtime Exception", e.getMessage(), e);
+        }
     }
 
     @Override
@@ -149,6 +141,4 @@ public class SpeechRecognitionModel implements RecognitionListener {
         speechService.cancel();
         speechService = null;
     }
-
-
 }

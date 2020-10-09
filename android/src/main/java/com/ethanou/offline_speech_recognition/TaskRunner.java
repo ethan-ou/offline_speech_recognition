@@ -15,29 +15,19 @@ public class TaskRunner {
         void onComplete(R result);
     }
 
-    public interface ErrorHandler<Exception> {
-        void onError(Exception error);
-    }
-
-    public <R> void executeAsync(Callable<R> callable, Callback<R> callback, ErrorHandler<Exception> error) {
-        try {
-            executor.execute(new RunnableTask<R>(handler, callable, callback, error));
-        } catch (Exception e) {
-            error.onError(e);
-        }
+    public <R> void executeAsync(Callable<R> callable, Callback<R> callback) {
+        executor.execute(new RunnableTask<R>(handler, callable, callback));
     }
 
     public static class RunnableTask<R> implements Runnable {
         private final Handler handler;
         private final Callable<R> callable;
         private final Callback<R> callback;
-        private final ErrorHandler<Exception> error;
 
-        public RunnableTask(Handler handler, Callable<R> callable, Callback<R> callback, ErrorHandler<Exception> error) {
+        public RunnableTask(Handler handler, Callable<R> callable, Callback<R> callback) {
             this.handler = handler;
             this.callable = callable;
             this.callback = callback;
-            this.error = error;
         }
 
         @Override
@@ -46,7 +36,7 @@ public class TaskRunner {
                 final R result = callable.call();
                 handler.post(new RunnableTaskForHandler<>(result, callback));
             } catch (Exception e) {
-                error.onError(e);
+                throw new RuntimeException(e);
             }
         }
     }

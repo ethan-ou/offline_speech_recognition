@@ -35,6 +35,7 @@ public class OfflineSpeechRecognitionPlugin implements FlutterPlugin, ActivityAw
   }
 
   public void onAttachedToActivity(@NonNull ActivityPluginBinding binding) {
+    assert flutterBinding != null;
     startListening(binding.getActivity(), flutterBinding.getBinaryMessenger());
   }
 
@@ -60,11 +61,6 @@ public class OfflineSpeechRecognitionPlugin implements FlutterPlugin, ActivityAw
   }
 
   private void startListening(Activity activity, BinaryMessenger messenger) {
-    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) {
-      // If the sdk is less than 21 (min sdk for Camera2) we don't register the plugin.
-      return;
-    }
-
     methodCallHandler = new MethodCallHandlerImpl(activity, messenger);
   }
 
