@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:offline_speech_recognition/model/speech_partial_result.dart';
+import 'package:offline_speech_recognition/model/speech_partial.dart';
 import 'dart:async';
 
 import 'package:offline_speech_recognition/offline_speech_recognition.dart';
@@ -9,39 +9,7 @@ void main() {
   runApp(MyApp());
 }
 
-class MyApp extends StatefulWidget {
-  @override
-  _MyAppState createState() => _MyAppState();
-}
-
-class _MyAppState extends State<MyApp> {
-  String _platformVersion = 'Unknown';
-
-  @override
-  void initState() {
-    super.initState();
-    initPlatformState();
-  }
-
-  // Platform messages are asynchronous, so we initialize in an async method.
-  Future<void> initPlatformState() async {
-    // Platform messages may fail, so we use a try/catch PlatformException.
-    try {
-      await OfflineSpeechRecognition.init();
-    } on Exception {
-      print("Exception!");
-    }
-
-    // If the widget was removed from the tree while the asynchronous platform
-    // message was in flight, we want to discard the reply rather than calling
-    // setState to update our non-existent appearance.
-    if (!mounted) return;
-
-    setState(() {
-      _platformVersion = "Works!";
-    });
-  }
-
+class MyApp extends StatelessWidget {
   Future<void> initSpeechRecognition() async {
     try {
       await OfflineSpeechRecognition.load();
@@ -59,15 +27,12 @@ class _MyAppState extends State<MyApp> {
         ),
         body: Column(
           children: [
-            Center(
-              child: Text('Running on: $_platformVersion\n'),
-            ),
             StreamBuilder(
                 stream: OfflineSpeechRecognition.onRecognitionPartial(),
                 builder: (BuildContext context,
-                    AsyncSnapshot<SpeechPartialResult> snapshot) {
+                    AsyncSnapshot<SpeechPartial> snapshot) {
                   if (snapshot.hasData) {
-                    return Text(snapshot.data.partial);
+                    return Text(snapshot.data.text);
                   } else {
                     return Text("No Data Yet");
                   }
