@@ -92,9 +92,10 @@ public class MethodCallHandlerImpl implements MethodChannel.MethodCallHandler {
         }
     }
 
-    void stopListening() {
+    public void stopListening() {
         methodChannel.setMethodCallHandler(null);
-        destroyEventChannels();
+        resultEventChannel.setStreamHandler(null);
+        partialEventChannel.setStreamHandler(null);
     }
 
     private void initEventChannels() {
@@ -121,10 +122,5 @@ public class MethodCallHandlerImpl implements MethodChannel.MethodCallHandler {
                 partialEvent = null;
             }
         });
-    }
-
-    private void destroyEventChannels() {
-        resultEventChannel.setStreamHandler(null);
-        partialEventChannel.setStreamHandler(null);
     }
 }
