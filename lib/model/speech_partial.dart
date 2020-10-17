@@ -1,16 +1,12 @@
-// Named the class as text for better consistency with the result class.
-// Not sure whether this is the best decision yet.
-
-// This pushes the complexity down a little. But it's more contextually right.
 class SpeechPartial {
-  final String text;
+  final String partial;
 
-  SpeechPartial(this.text);
+  SpeechPartial(this.partial);
 
-  SpeechPartial.fromJson(Map<String, dynamic> json) : text = json['partial'];
+  SpeechPartial.fromJson(Map<String, dynamic> json) : partial = json['partial'];
 
   Map<String, String> toJson() => {
-        'partial': text,
+        'partial': partial,
       };
 
   @override
