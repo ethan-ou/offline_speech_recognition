@@ -115,3 +115,24 @@ class ModelDownloader {
     }
   }
 }
+
+// class ModelDownloader {
+//   static String _modelURL = "https://alphacephei.com/vosk/models/";
+//   static Map<SpeechLanguage, String> _modelLanguage = {
+//     'en': "vosk-model-small-en-us-0.4.zip",
+//     'en_in': "vosk-model-small-en-in-0.4.zip",
+//     'cn': "vosk-model-small-cn-0.3.zip",
+//     "ru": "vosk-model-small-ru-0.4.zip",
+//     "fr": "vosk-model-small-fr-pguyot-0.3.zip",
+//     "de": "vosk-model-small-de-zamia-0.3.zip",
+//     "es": "vosk-model-small-es-0.3.zip",
+//     "tr": "vosk-model-small-tr-0.3.zip",
+//     "vn": "vosk-model-small-vn-0.3.zip",
+//     "it": "vosk-model-small-it-0.4.zip",
+//     "ca": "vosk-model-small-ca-0.4.zip",
+//     "fa": "vosk-model-small-fa-0.4.zip"
+//   };
+
+//   static String _assetsDir;
+//   static String get assetsDir => _assetsDir;
+// }

@@ -4,7 +4,8 @@ import 'dart:convert';
 import 'package:flutter/services.dart';
 import 'package:offline_speech_recognition/model/speech_partial.dart';
 import 'package:offline_speech_recognition/model/speech_result.dart';
-import 'package:offline_speech_recognition/model_downloader.dart';
+
+import 'model/speech_recognition_exception.dart';
 
 class OfflineSpeechRecognition {
   static const MethodChannel _channel =
@@ -16,51 +17,30 @@ class OfflineSpeechRecognition {
   static const EventChannel _partialMessageChannel =
       EventChannel('offline_speech_recognition/partial_message');
 
-  static Future<String> downloadAssets() async {
-    await ModelDownloader.init();
+  static bool _isLoaded = false;
 
-    Future _downloadAssets() async {
-      bool assetsDownloaded = await ModelDownloader.assetsDirAlreadyExists();
+  static Future<void> load(String path) async {
+    _isLoaded = false;
 
-      if (assetsDownloaded) {
-        return ModelDownloader.assetsDir;
-      }
-
-      try {
-        await ModelDownloader.startDownload(
-            assetsUrl:
-                "http://alphacephei.com/vosk/models/vosk-model-small-en-us-0.3.zip",
-            onProgress: (progressValue) {
-              print(progressValue);
-            },
-            onComplete: () {
-              print("Complete");
-            },
-            onError: (exception) {
-              print(exception);
-            });
-      } on DownloadAssetsException catch (e) {
-        print(e.toString());
-      }
+    try {
+      await _channel.invokeMethod("recognition.load", {'path': path});
+      _isLoaded = true;
+    } on PlatformException catch (e) {
+      throw SpeechRecognitionException(e.code, e.message);
     }
-
-    await _downloadAssets();
-    return ModelDownloader.assetsDir;
-  }
-
-  static Future<void> clearAssets() async {
-    await ModelDownloader.clearAssets();
-  }
-
-  static Future<void> load() async {
-    await _channel.invokeMethod("recognition.init");
-    String path = await downloadAssets() + "/vosk-model-small-en-us-0.3";
-    await _channel
-        .invokeMethod("recognition.load", <String, String>{'path': path});
   }
 
   static Future<void> start() async {
-    await _channel.invokeMethod("recognition.start");
+    if (_isLoaded == false) {
+      throw SpeechRecognitionException('Speech Recognition not loaded.',
+          'load method needs to be called before starting recognition.');
+    }
+
+    try {
+      await _channel.invokeMethod("recognition.start");
+    } on PlatformException catch (e) {
+      throw SpeechRecognitionException(e.code, e.message);
+    }
   }
 
   static Future<void> stop() async {
@@ -69,6 +49,8 @@ class OfflineSpeechRecognition {
 
   static Future<void> destroy() async {
     await _channel.invokeMethod("recognition.destroy");
+
+    _isLoaded = false;
   }
 
   static Stream<SpeechResult> _onRecognitionResult;
