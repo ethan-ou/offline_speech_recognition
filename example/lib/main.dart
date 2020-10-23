@@ -50,7 +50,7 @@ class _AppBodyState extends State<AppBody> {
               RaisedButton(
                   child: Text("Download"),
                   onPressed: () {
-                    SpeechRecognition.downloadModel(SpeechLanguage.chinese,
+                    SpeechRecognition.downloadModel(SpeechLanguage.english,
                         onProgress: (progress) {
                       setState(() {
                         downloading = true;
@@ -65,7 +65,7 @@ class _AppBodyState extends State<AppBody> {
               RaisedButton(
                   child: Text("Load"),
                   onPressed: () {
-                    SpeechRecognition.load(SpeechLanguage.chinese);
+                    SpeechRecognition.load(SpeechLanguage.english);
                   }),
               RaisedButton(
                   child: Text("Start/Stop"),
@@ -76,7 +76,7 @@ class _AppBodyState extends State<AppBody> {
                   child: Text("Delete Language"),
                   onPressed: () {
                     SpeechRecognition.destroy();
-                    SpeechRecognition.deleteModel(SpeechLanguage.chinese);
+                    SpeechRecognition.deleteModel(SpeechLanguage.english);
                   }),
               RaisedButton(
                   child: Text("Delete All Languages"),
