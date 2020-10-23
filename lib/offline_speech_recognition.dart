@@ -32,7 +32,7 @@ class OfflineSpeechRecognition {
 
   static Future<void> start() async {
     if (_isLoaded == false) {
-      throw SpeechRecognitionException('Speech Recognition not loaded.',
+      throw SpeechRecognitionException('Speech Recognition not loaded',
           'load method needs to be called before starting recognition.');
     }
 
@@ -53,25 +53,25 @@ class OfflineSpeechRecognition {
     _isLoaded = false;
   }
 
-  static Stream<SpeechResult> _onRecognitionResult;
+  static Stream<SpeechResult> _onResult;
 
-  static Stream<SpeechResult> onRecognitionResult() {
-    if (_onRecognitionResult == null) {
-      _onRecognitionResult = _resultMessageChannel
+  static Stream<SpeechResult> onResult() {
+    if (_onResult == null) {
+      _onResult = _resultMessageChannel
           .receiveBroadcastStream()
           .map((data) => SpeechResult.fromJson(jsonDecode(data)));
     }
-    return _onRecognitionResult;
+    return _onResult;
   }
 
-  static Stream<SpeechPartial> _onRecognitionPartial;
+  static Stream<SpeechPartial> _onPartial;
 
-  static Stream<SpeechPartial> onRecognitionPartial() {
-    if (_onRecognitionPartial == null) {
-      _onRecognitionPartial = _partialMessageChannel
+  static Stream<SpeechPartial> onPartial() {
+    if (_onPartial == null) {
+      _onPartial = _partialMessageChannel
           .receiveBroadcastStream()
           .map((data) => SpeechPartial.fromJson(jsonDecode(data)));
     }
-    return _onRecognitionPartial;
+    return _onPartial;
   }
 }

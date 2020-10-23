@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:archive/archive.dart';
 import 'package:dio/dio.dart';
-import 'package:flutter/material.dart';
+import 'package:offline_speech_recognition_example/model/speech_language.dart';
 import 'package:path_provider/path_provider.dart';
 
 class DownloadAssetsException implements Exception {
@@ -14,94 +14,21 @@ class DownloadAssetsException implements Exception {
   String toString() => exception?.toString() ?? _message;
 }
 
+class ModelException implements Exception {
+  final Exception exception;
+  final String _message;
+
+  ModelException(this._message, {this.exception});
+
+  String toString() => exception?.toString() ?? _message;
+}
+
 class SpeechLanguagePath {
   final SpeechLanguage language;
   final String version;
   final String path;
 
   SpeechLanguagePath({this.language, this.version, this.path});
-}
-
-enum SpeechLanguage {
-  english,
-  indianEnglish,
-  chinese,
-  russian,
-  french,
-  german,
-  spanish,
-  portuguese,
-  turkish,
-  vietnamese,
-  italian,
-  catalan,
-  farsi
-}
-
-String serializeSpeechLanguage(SpeechLanguage language) {
-  switch (language) {
-    case SpeechLanguage.english:
-      return "english";
-    case SpeechLanguage.indianEnglish:
-      return "indianEnglish";
-    case SpeechLanguage.chinese:
-      return "chinese";
-    case SpeechLanguage.russian:
-      return "russian";
-    case SpeechLanguage.french:
-      return "french";
-    case SpeechLanguage.german:
-      return "german";
-    case SpeechLanguage.spanish:
-      return "spanish";
-    case SpeechLanguage.portuguese:
-      return "portuguese";
-    case SpeechLanguage.turkish:
-      return "turkish";
-    case SpeechLanguage.vietnamese:
-      return "vietnamese";
-    case SpeechLanguage.italian:
-      return "italian";
-    case SpeechLanguage.catalan:
-      return "catalan";
-    case SpeechLanguage.farsi:
-      return "farsi";
-  }
-
-  throw ArgumentError('Unknown SpeechLanguage value');
-}
-
-SpeechLanguage codeToSpeechLanguage(String language) {
-  switch (language) {
-    case "en-us":
-      return SpeechLanguage.english;
-    case "en-in":
-      return SpeechLanguage.indianEnglish;
-    case "cn":
-      return SpeechLanguage.chinese;
-    case "ru":
-      return SpeechLanguage.russian;
-    case "fr":
-      return SpeechLanguage.french;
-    case "de":
-      return SpeechLanguage.german;
-    case "es":
-      return SpeechLanguage.spanish;
-    case "pt":
-      return SpeechLanguage.portuguese;
-    case "tr":
-      return SpeechLanguage.turkish;
-    case "vn":
-      return SpeechLanguage.vietnamese;
-    case "it":
-      return SpeechLanguage.italian;
-    case "ca":
-      return SpeechLanguage.catalan;
-    case "fa":
-      return SpeechLanguage.farsi;
-  }
-
-  throw ArgumentError('Unknown language string');
 }
 
 String speechLanguageURL(SpeechLanguage language) {
@@ -147,7 +74,7 @@ SpeechLanguagePath parseLanguagePath(String filepath) {
   fileParts.removeWhere((element) => removeExtras.contains(element));
 
   // Find version number
-  String version = fileParts[-1];
+  String version = fileParts.last;
   assert(
       double.tryParse(version) != null, 'Version number could not be parsed.');
   fileParts.removeLast();
@@ -170,13 +97,22 @@ class ModelDirectory {
   static String _directory;
   static String get directory => _directory;
 
-  static Future init({String directory = 'models'}) async {
+  static Future _init({String directory = 'models'}) async {
+    if (_directory != null) {
+      return;
+    }
+
     String rootDir = (await getApplicationDocumentsDirectory()).path;
     _directory = '$rootDir/$directory';
   }
 
+  static Future dirCreate() async {
+    await _init();
+    await Directory(_directory).create();
+  }
+
   static Future<bool> dirExists() async {
-    assert(_directory.isNotEmpty, 'Directory needs to be initialized.');
+    await _init();
 
     return Directory(_directory).exists();
   }
@@ -189,45 +125,84 @@ class ModelDirectory {
     await Directory(_directory).delete(recursive: true);
   }
 
-  static Future<List<String>> getLanguagePath(SpeechLanguage language) async {
-    List<SpeechLanguagePath> languages = await listLanguages();
+  static Future<String> getLanguagePath(SpeechLanguage language) async {
+    await _init();
 
-    List<SpeechLanguagePath> filteredLanguages =
-        languages.where((element) => element.language == language);
+    try {
+      List<SpeechLanguagePath> languages = await listLanguages();
 
-    return filteredLanguages.map((language) => '$_directory/${language.path}');
+      List<String> filterAndNormalizeLanguage = languages
+          .where((element) => element.language == language)
+          .toList()
+          .map((language) => '$_directory/${language.path}')
+          .toList();
+
+      if (filterAndNormalizeLanguage.isEmpty) {
+        throw ModelException('Language not found');
+      }
+
+      return filterAndNormalizeLanguage.first;
+    } on ModelException {
+      rethrow;
+    }
   }
 
   static Future<List<SpeechLanguagePath>> listLanguages() async {
-    Stream<FileSystemEntity> directoryList =
-        Directory(_directory).list(followLinks: false, recursive: false);
+    await _init();
+
+    if (_directory == null) {
+      throw ModelException("No Directory");
+    }
+
+    List<FileSystemEntity> directoryList =
+        Directory(_directory).listSync(followLinks: false, recursive: false);
+
+    if (directoryList.isEmpty) {
+      throw ModelException("Nothing found in Directory");
+    }
+
     List<String> folderPaths = [];
 
-    await for (FileSystemEntity directory in directoryList) {
+    for (FileSystemEntity directory in directoryList) {
       // May require more comprehensive filtering for files in the future.
       if (!directory.path.endsWith('.zip')) {
         folderPaths.add(directory.path);
       }
     }
 
+    if (folderPaths.isEmpty) {
+      throw ModelException("No Models Found");
+    }
+
     List<SpeechLanguagePath> downloadedLanguages =
-        folderPaths.map((filepath) => parseLanguagePath(filepath));
+        folderPaths.map((filepath) => parseLanguagePath(filepath)).toList();
 
     return downloadedLanguages;
   }
 
-  static Future downloadLanguage({
-    @required SpeechLanguage language,
+  static Future downloadLanguage(
+    SpeechLanguage language, {
     Function(double) onProgress,
     Function(Exception) onError,
     Function onComplete,
   }) async {
+    String downloadURL;
+    String downloadPath;
+    await _init();
+
     try {
-      await Directory(_directory).create();
+      await dirCreate();
+      await deleteLanguage(language);
 
-      String downloadURL = '$_modelBaseURL${speechLanguageURL(language)}';
-      String downloadPath = '$_directory/${speechLanguageURL(language)}';
+      String speechURL = speechLanguageURL(language);
 
+      downloadURL = '$_modelBaseURL$speechURL';
+      downloadPath = '$_directory/$speechURL';
+    } catch (e) {
+      rethrow;
+    }
+
+    try {
       double totalProgress = 0;
 
       if (onProgress != null) onProgress(0);
@@ -284,14 +259,18 @@ class ModelDirectory {
   }
 
   static Future deleteLanguage(SpeechLanguage language) async {
-    List<String> filteredLanguages = await getLanguagePath(language);
+    await _init();
 
-    for (String languagePath in filteredLanguages) {
+    try {
+      String languagePath = await getLanguagePath(language);
+
       bool languageExists = await Directory(languagePath).exists();
 
       if (languageExists) {
         await Directory(languagePath).delete(recursive: true);
       }
+    } on ModelException {
+      return;
     }
   }
 }
