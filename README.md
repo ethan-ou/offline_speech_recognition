@@ -1,5 +1,9 @@
 # offline_speech_recognition
 
+For the current version of the speech recognition plugin, see the Vosk repository: [https://github.com/alphacep/vosk-flutter](https://github.com/alphacep/vosk-flutter)
+
+
+
 A new flutter plugin project.
 
 ## Getting Started
